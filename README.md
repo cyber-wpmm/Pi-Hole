@@ -1,34 +1,28 @@
-# Pi-hole Setup Guide
+# Pi-hole Setup and Configuration Guide
 
-This guide documents the steps to install and configure [Pi-hole](https://pi-hole.net/) on a Raspberry Pi for network-wide ad-blocking.  
-This documentation will not include the instllation process of a Linux on the Pi.
+*Chicken Little - Win*  
+*Date: 2025-07-09*
 
-I have Ubuntu 24.04.2 LTS server running on my [Raspberry Pi 4 model B](https://www.raspberrypi.com/products/raspberry-pi-4-model-b/specifications/).
-I am planning to have Pi-Hole run on docker container. 
+---
 
-## Requirements
-- Raspberry Pi (3/4/5 Model B)
-- Linux Debian Bassed Operating System (Ubuntu 22.04 or Raspberry Pi OS)
-- Docker
-- Static IP address Configuration
-- Internet connection
-- Optional: SSH access
+## Overview
+
+This guide covers installing and configuring Pi-hole on a Raspberry Pi, including setting up a static IP, Docker installation, Pi-hole container setup, adding blocklists, password management, and DNS client configuration.
 
 **Note:**
 Assuming you have installed a Linux Operating System on your SD card with Raspberry Pi Imager, and have valid internet configuration (either Etherent or Wifi).
+## Step 1: Check IP and Basic Commands
 
-## Step 1: Basic commands to run
 ```bash
-#Do this on your pi to know what the ip address is
-
 ip a
-#or
+# or
 ifconfig
 
-#For ssh from your laptop/ computer
+# SSH into Raspberry Pi
 ssh username@ip_address
 
-sudo apt update && upgrade -y 
+# Update system
+sudo apt update && sudo apt upgrade -y
 ```
 
 ## Step 2: Static IP configuration
