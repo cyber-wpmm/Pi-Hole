@@ -29,10 +29,16 @@ sudo apt update && sudo apt upgrade -y
 ### On Ubuntu server (Using Netplan)
 Here I am using wlan0 instead of eth0 since my pi isn't physically connected to the router. To set up static IP address for the connection, you will need to edit the netplan yaml configuration file in /etc/netplan folder
 
+I am using kitty terminal on my host so sometimes I am not able to nano in ssh session
+**If you cannot nano during the SSH session:**
+```bash
+export TERM=xterm-256color
+```
+
 ```bash
 sudo nano /etc/netplan/50-cloud-init.yaml
 #note the name may be different with different OS.
-```
+``` 
 This is essentially what you may see if you have not connect to any network yet. 
 
 ```
@@ -116,7 +122,7 @@ sudo reboot
 
 #Checking docker version
 docker --version
-docker compose --version
+docker compose version
 
 ##Making directory for Pihole
 mkdir pihole
@@ -193,6 +199,29 @@ services:
       - './etc-dnsmasq.d:/etc/dnsmasq.d'
     restart: unless-stopped
 ```
+Before you create the container, it is important to check if the ports are used.
+Usually port 53 can be used by service resolv for DNS. 
+
+```bash
+sudo ss -tulpn
+
+#Here you can check which ports are being used by which services.
+#systemd-resolve is using port 53 so we will stop the service and disable it to not have conflict with the pihole.
+
+sudo systemctl disable systemd-resolved
+sudo systemctl stop systemd-resolved
+
+
+
+#Temporarily we will still need to point to a valid DNS server in our resolv.conf
+sudo nano /etc/resolv.conf
+
+#add or change nameserver to google's DNS server
+nameserver 8.8.8.8
+
+#Ctrl+O and Ctrl + X || Save and Exit
+```
+
 
 ```bash
 #Afterwards we create the container
@@ -208,7 +237,7 @@ docket ps #To check acttive containers
 #if you have your host ip address statically setup as 192.168.10.10
 #then go to here:
 
-192.168.10.10/admin
+192.168.10.10/admin #your Pi's Ip address will/might be different
  
 ```
 
