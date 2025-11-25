@@ -1,272 +1,320 @@
 # Pi-hole Setup and Configuration Guide
 
-*Chicken Little - Win*  
-*Date: 2025-07-09*
+**Server:** Chicken Little - Win  
+**Last Updated:** 2025-11-25
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Prerequisites](#prerequisites)
+3. [Step 1: Initial Setup and IP Configuration](#step-1-initial-setup-and-ip-configuration)
+4. [Step 2: Setting Static IP Address](#step-2-setting-static-ip-address)
+5. [Step 3: Installing Docker](#step-3-installing-docker)
+6. [Step 4: Pi-hole Docker Setup](#step-4-pi-hole-docker-setup)
+7. [Step 5: Adding Blocklists](#step-5-adding-blocklists)
+8. [Step 6: Configuring DNS Clients](#step-6-configuring-dns-clients)
+9. [Troubleshooting](#troubleshooting)
+10. [Additional Resources](#additional-resources)
 
 ---
 
 ## Overview
 
-This guide covers installing and configuring Pi-hole on a Raspberry Pi, including setting up a static IP, Docker installation, Pi-hole container setup, adding blocklists, password management, and DNS client configuration.
+This guide covers the complete installation and configuration of Pi-hole on a Raspberry Pi using Docker, including:
+- Setting up a static IP address
+- Docker and Docker Compose installation
+- Pi-hole container deployment
+- Adding comprehensive blocklists
+- Client DNS configuration
 
-**Note:**
-Assuming you have installed a Linux Operating System on your SD card with Raspberry Pi Imager, and have valid internet configuration (either Etherent or Wifi).
-## Step 1: Check IP and Basic Commands
+---
+
+## Prerequisites
+
+- Raspberry Pi with Linux OS installed (Ubuntu Server or Raspberry Pi OS)
+- Valid internet connection (Ethernet or Wi-Fi)
+- SSH access to the Pi
+- Basic command line knowledge
+
+**Tip:** When using Raspberry Pi Imager, pre-configure Wi-Fi and credentials using **Ctrl + Shift + X** (Windows) or **Command + Shift + X** (macOS) before flashing.
+
+---
+![[./images/OS_Customisation.png]]
+## Step 1: Initial Setup and IP Configuration
+
+### Finding Your Pi's IP Address
+
+**Option 1 - Through Router:**
+- Log into your router's web interface (usually `192.168.0.1` or `192.168.1.1`)
+- Look for "DHCP Clients" or "Connected Devices"
+- Find your Pi's IP address
+
+**Option 2 - Direct Access:**
+- Connect monitor and keyboard to Pi
+- Run the following command:
 
 ```bash
 ip a
 # or
 ifconfig
+```
 
-# SSH into Raspberry Pi
+### Connecting via SSH
+
+```bash
 ssh username@ip_address
+```
 
-# Update system
+### Update System
+
+```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-## Step 2: Static IP configuration
-### On Ubuntu server (Using Netplan)
-Here I am using wlan0 instead of eth0 since my pi isn't physically connected to the router. To set up static IP address for the connection, you will need to edit the netplan yaml configuration file in /etc/netplan folder
+**SSH Terminal Fix (if needed):**
 
-I am using kitty terminal on my host so sometimes I am not able to nano in ssh session
-**If you cannot nano during the SSH session:**
+If you can't use `nano` during SSH session:
+
 ```bash
 export TERM=xterm-256color
 ```
 
+---
+
+## Step 2: Setting Static IP Address
+
+A static IP ensures Pi-hole remains accessible at the same address.
+
+### Method 1: Ubuntu Server (Using Netplan)
+
+**Edit Netplan configuration:**
+
 ```bash
 sudo nano /etc/netplan/50-cloud-init.yaml
-#note the name may be different with different OS.
-``` 
-This is essentially what you may see if you have not connect to any network yet. 
+```
 
-```
-network:
-  version: 2
-  ethernets:
-    eth0:
-      dhcp4: true
-```
-This is essentially what you might see in the default unconfigured 50-cloud-init.yaml file. However, with Raspberry Pi Imager, before flashing the SD card with and OS image, there is a setting where you can preconfigured the wifi connection, hostnames, and other usernames/password. 
+**For Wi-Fi connection (wlan0):**
 
-We will have to manually insert the options we want. Since we are setting static IP addresses, we will need to turn off the DHCP and create default routes to your Router's IP address. 
-```
+```yaml
 network:
   version: 2
   renderer: networkd
   wifis:
     wlan0:
-      dhcp4: no  #<-- Disabling DHCP for IPv4 Addresses
-      addresses: [192.168.10.50/24] #<-- Static IP adderss of your choice (must be the same subnet)
+      dhcp4: no
+      addresses: [192.168.10.50/24]  # Your chosen static IP
       routes:
         - to: 0.0.0.0/0
-          via: 102.168.10.1 #<-- Gateway/ Router IP address usually .1 at the end
+          via: 192.168.0.1  # Your router's IP
       nameservers:
-        addresses: [1.1.1.1, 8.8.8.8] #<-- Cloudflare and Google's DNS server
+        addresses: [1.1.1.1, 8.8.8.8]  # Cloudflare and Google DNS
       access-points:
-        "YourSSID": #<-- Wifi-Name
+        "YourSSID":
           password: "YourWiFiPassword"
 ```
 
-```bash
-#To Test if it is properly set up
-ip a #check for ip address
-ping google.com #See if there is any replies
+**For Ethernet connection (eth0):**
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+      addresses: [192.168.10.50/24]
+      routes:
+        - to: 0.0.0.0/0
+          via: 192.168.0.1
+      nameservers:
+        addresses: [1.1.1.1, 8.8.8.8]
 ```
 
+**Apply changes:**
 
-### On PI OS (Using NetworkManager nmcli)
 ```bash
-#Listing the known connections with the names
+sudo netplan apply
+```
+
+**Verify configuration:**
+
+```bash
+ip a
+ping google.com
+```
+
+### Method 2: Raspberry Pi OS (Using NetworkManager)
+
+```bash
+# List available connections
 sudo nmcli connection show
 
-#Change the name to your own 
-nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.1.100/24  #Change it to your choice
-
-nmcli connection modify "Wired connection 1" ipv4.gateway 192.168.1.1  #must be in the same subnet as your ip
-
-nmcli connection modify "Wired connection 1" ipv4.dns "8.8.8.8 1.1.1.1" 
+# Set static IP (replace "Wired connection 1" with your connection name)
+nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.1.100/24
+nmcli connection modify "Wired connection 1" ipv4.gateway 192.168.1.1
+nmcli connection modify "Wired connection 1" ipv4.dns "8.8.8.8 1.1.1.1"
 nmcli connection modify "Wired connection 1" ipv4.method manual
 
-#(Optional) Disabling IPv6
+# Optional: Disable IPv6
 nmcli connection modify "Wired connection 1" ipv6.method ignore
 
+# Restart connection
 nmcli connection down "Wired connection 1"
 nmcli connection up "Wired connection 1"
 
-#Checking if static IP address is implemented
+# Verify
 ip a
-
-#If this doesn't work rebooting the pi would be better
-reboot
-
-#If you ran into ssh error 
-sudo nano /home/YOUR_USER/.ssh/known_hosts
-#Edit out the existing host keys for the static IP address you have set and Retry SSH
-
 ```
-## Step 3: Installing Docker 
 
-Here is the [Official Guide](https://docs.docker.com/compose/install/linux/#install-using-the-repository)
+**If reboot is needed:**
 
 ```bash
-#Installing docker's official install script:
+sudo reboot
+```
+
+**Fix SSH known_hosts error (if encountered):**
+
+```bash
+sudo nano /home/YOUR_USER/.ssh/known_hosts
+# Remove the old entry for the IP address, save, and retry SSH
+```
+
+### Alternative: Set Static IP via Router (Recommended)
+
+If you have router access, reserve the Pi's IP address in the router's DHCP settings. This is often easier and more reliable.
+
+---
+
+## Step 3: Installing Docker
+
+### Install Docker using official script
+
+```bash
+# Download Docker installation script
 curl -fsSL https://get.docker.com -o get-docker.sh
+
+# Run installation
 sudo sh get-docker.sh
 
-#This allows user to run docker with root privelege without requiring to type sudo again and again (OPTIONAL)
+# Add user to docker group (optional - allows running docker without sudo)
 sudo usermod -aG docker $USER
 
+# Reboot to apply changes
 sudo reboot
+```
 
-#Checking docker version
+### Verify Installation
+
+```bash
 docker --version
 docker compose version
+```
 
-##Making directory for Pihole
-mkdir pihole
+---
 
-cd pihole #I put my yml file in the pihole directory
+## Step 4: Pi-hole Docker Setup
+
+### Create Pi-hole Directory
+
+```bash
+mkdir ~/pihole
+cd ~/pihole
+```
+
+### Create Docker Compose File
+
+```bash
 nano docker-compose.yml
 ```
 
-Paste the code from the [docker-pi-hole](https://github.com/pi-hole/docker-pi-hole)  
-It will look something like this and you just need to change the important configurations:
+### Docker Compose Configuration
 
-```yml
-# More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
-#By Default this configuration will make Pi-Hole use bridge network. 
+```yaml
 services:
   pihole:
     container_name: pihole
     image: pihole/pihole:latest
     ports:
-      # DNS Ports
-      - "53:53/tcp"
-      - "53:53/udp"
-      # Default HTTP Port
-      - "80:80/tcp"
-      # Default HTTPs Port. FTL will generate a self-signed certificate
-      - "443:443/tcp"
-      # Uncomment the line below if you are using Pi-hole as your DHCP server
-      #- "67:67/udp"
-      # Uncomment the line below if you are using Pi-hole as your NTP server
-      #- "123:123/udp"
+      - "53:53/tcp"      # DNS TCP
+      - "53:53/udp"      # DNS UDP
+      - "80:80/tcp"      # Web interface HTTP
+      - "443:443/tcp"    # Web interface HTTPS
     environment:
-      # Set the appropriate timezone for your location (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), e.g:
-      TZ: 'Europe/London'
-      # Set a password to access the web interface. Not setting one will result in a random password being assigned
-      FTLCONF_webserver_api_password: 'correct horse battery staple'
-      # If using Docker's default `bridge` network setting the dns listening mode should be set to 'all'
-      FTLCONF_dns_listeningMode: 'all'
-    # Volumes store your data between container upgrades
-    volumes:
-      # For persisting Pi-hole's databases and common configuration file
-      - './etc-pihole:/etc/pihole'
-      # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most starting fresh with Pi-hole v6. If you're upgrading from v5 you and have used this directory before, you should keep it enabled for the first v6 container start to allow for a complete migration. It can be removed afterwards. Needs environment variable FTLCONF_misc_etc_dnsmasq_d: 'true'
-      #- './etc-dnsmasq.d:/etc/dnsmasq.d'
-    cap_add:
-      # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
-      # Required if you are using Pi-hole as your DHCP server, else not needed
-      - NET_ADMIN
-      # Required if you are using Pi-hole as your NTP client to be able to set the host's system time
-      - SYS_TIME
-      # Optional, if Pi-hole should get some more processing time
-      - SYS_NICE
-    restart: unless-stopped
-```
-
-It is important to modify this based on what you will be using for (DHCP, NTP server). Since I am not able to have access to the router itself (Using CGNAT), i will just be changing the DNS server of each clients to the IP addess of my raspberry pi. For me in came down to this:
-
-```yml
-services:
-  pihole:
-    container_name: pihole
-    image: pihole/pihole:latest
-    ports:
-      # DNS Ports
-      - "53:53/tcp"
-      - "53:53/udp"
-      - "80:80/tcp"
-      - "443:443/tcp"
-    environment:
-      TZ: 'Pacific/Auckland'
-      FTLCONF_webserver_api_password: 'YourPassword'
-      FTLCONF_dns_listeningMode: 'all' #This is important if you are using default bridge network settings
+      TZ: 'Pacific/Auckland'  # Change to your timezone
+      FTLCONF_webserver_api_password: 'YourSecurePassword'
+      FTLCONF_dns_listeningMode: 'all'  # Required for bridge network
     volumes:
       - './etc-pihole:/etc/pihole'
       - './etc-dnsmasq.d:/etc/dnsmasq.d'
     restart: unless-stopped
 ```
-Before you create the container, it is important to check if the ports are used.
-Usually port 53 can be used by service resolv for DNS. 
+
+**Important timezone format:** Use [tz database format](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+
+### Check Port Conflicts
 
 ```bash
 sudo ss -tulpn
+```
 
-#Here you can check which ports are being used by which services.
-#systemd-resolve is using port 53 so we will stop the service and disable it to not have conflict with the pihole.
+**If port 53 is in use by systemd-resolved:**
 
+```bash
+# Stop and disable systemd-resolved
 sudo systemctl disable systemd-resolved
 sudo systemctl stop systemd-resolved
 
-
-
-#Temporarily we will still need to point to a valid DNS server in our resolv.conf
+# Temporarily set DNS server
 sudo nano /etc/resolv.conf
-
-#add or change nameserver to google's DNS server
-nameserver 8.8.8.8
-
-#Ctrl+O and Ctrl + X || Save and Exit
+# Add: nameserver 8.8.8.8
 ```
 
+### Start Pi-hole Container
 
 ```bash
-#Afterwards we create the container
-
 docker compose up -d
-#OR
-sudo docker compose up -d
-
-docket ps #To check acttive containers
-
-
-#go to the following url link in a browser:
-#if you have your host ip address statically setup as 192.168.10.10
-#then go to here:
-
-192.168.10.10/admin #your Pi's Ip address will/might be different
- 
 ```
 
-**If you run into error where password is not working or see the following issue:**
-```
-"After installing Pi-hole for the first time, a password is generated and displayed to the user.
-The password cannot be retrieved later on, but it is possible to set a new password (or explicitly disable the password by setting an empty password) using the command"
-```
-```bash
-#To access the bash shell of the pihole container:
-sudo docker exec -it pihole /bin/bash
-
-#Note: If you changed the container name to something else other than pihole changed it throughout the commands.
-
-#pihole set new password
-pihole setpassword YourPassword
-```
-
-To add the blocklists quickly, we would need to access the gravity.db file. 
+### Verify Container is Running
 
 ```bash
-#Install sqlite3
+docker ps
+```
+
+### Access Web Interface
+
+Open browser and navigate to:
+
+```
+http://192.168.10.50/admin
+```
+
+Replace `192.168.10.50` with your Pi's static IP address.
+
+---
+
+## Step 5: Adding Blocklists
+
+### Method 1: Via SQLite (Bulk Import)
+
+**Install sqlite3:**
+
+```bash
 sudo apt install sqlite3
 ```
 
-```bash
-sudo sqlite3 /etc-pihole/gravity.db
+**Access gravity database:**
 
-INSERT OR IGNORE INTO adlist (address) VALUES
+```bash
+sudo sqlite3 ~/pihole/etc-pihole/gravity.db
+```
+
+**Insert blocklists:**
+
+```sql
+INSERT OR IGNORE INTO adlist (address) VALUES 
 ('https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts'),
 ('https://adaway.org/hosts.txt'),
 ('https://v.firebog.net/hosts/AdguardDNS.txt'),
@@ -287,70 +335,215 @@ INSERT OR IGNORE INTO adlist (address) VALUES
 ('https://raw.githubusercontent.com/RooneyMcNibNug/pihole-stuff/master/SNAFU.txt'),
 ('https://paulgb.github.io/BarbBlock/blacklists/hosts-file.txt'),
 ('https://v.firebog.net/hosts/Easyprivacy.txt'),
-('https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts'),
-('https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt'),
-('https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt'),
-('https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/android-tracking.txt'),
-('https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV.txt'),
-('https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/AmazonFireTV.txt'),
-('https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-blocklist.txt'),
-('https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt'),
-('https://v.firebog.net/hosts/Prigent-Crypto.txt'),
-('https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts'),
-('https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt'),
-('https://phishing.army/download/phishing_army_blocklist_extended.txt'),
-('https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt'),
-('https://v.firebog.net/hosts/RPiList-Malware.txt'),
-('https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt'),
-('https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts'),
-('https://urlhaus.abuse.ch/downloads/hostfile/'),
-('https://lists.cyberhost.uk/malware.txt'),
-('https://malware-filter.gitlab.io/malware-filter/phishing-filter-hosts.txt'),
-('https://v.firebog.net/hosts/Prigent-Malware.txt'),
-('https://raw.githubusercontent.com/jarelllama/Scam-Blocklist/main/lists/wildcard_domains/scams.txt'),
-('https://v.firebog.net/hosts/RPiList-Phishing.txt'),
-('https://v.firebog.net/hosts/Prigent-Ads.txt'),
-('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.amazon.txt'),
-('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.apple.txt'),
-('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.winoffice.txt'),
-('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/native.tiktok.extended.txt'),
-('https://small.oisd.nl/rpz'),
-('https://urlhaus.abuse.ch/downloads/hostfile'),
-('https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/tif.mini.txt');
+('https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts');
+```
 
+**Exit SQLite:**
+
+```sql
 .exit
+```
 
+**Update gravity (refresh blocklists):**
+
+```bash
 docker exec -it pihole pihole -g
 ```
-**Here are some useful links for adding block (deny) lists or allow lists**
-- https://github.com/hagezi/dns-blocklists
-- https://github.com/r0xd4n3t/pihole-adblock-lists
-- 
 
-### Changing the DNS for Clients 
-Since I do not have access to my router, as I am using CGNAT. 
-I will have to manually configure each client's device to set their dns server to point to the IP address of the pihole docker, more specifically my Pi 5 since the docker uses Bridge mode as default. 
+### Method 2: Via Web Interface
+
+1. Go to **Adlists** in the web interface
+2. Add blocklist URLs one by one
+3. Click **Tools** → **Update Gravity**
+
+### Recommended Blocklist Resources
+
+- [Hagezi DNS Blocklists](https://github.com/hagezi/dns-blocklists)
+- [r0xd4n3t's Pi-hole Lists](https://github.com/r0xd4n3t/pihole-adblock-lists)
+
+### Adding Whitelists
+
+Some legitimate domains may be blocked. Add this whitelist:
 
 ```
+https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt
+```
+
+Import via web interface: **Whitelist** → Add domains from URL
+
+---
+
+## Step 6: Configuring DNS Clients
+
+### Option 1: Configure Individual Devices (CGNAT/No Router Access)
+
+**For Linux (NetworkManager):**
+
+```bash
+# Show connections
 nmcli connection show
 
-nmcli connection modify WIFI_NAME ipv4.dns PI_IPv4_Address
+# Modify DNS settings
+nmcli connection modify "WiFi-Name" ipv4.dns 192.168.10.50
+nmcli connection modify "WiFi-Name" ipv4.ignore-auto-dns yes
 
-nmcli connection modify WIFI_NAME ipv4.ignore-auto-dns yes
+# Restart connection
+nmcli connection up "WiFi-Name"
 
-nmcli connection up WIFI_NAME
-
-#To verify if DNS has changed:
+# Verify DNS
 nmcli device show wlp4s0 | grep IP4.DNS
-
-#wlp4s0 can be eth0 too depending on your device's network interface
 ```
 
-### Changing DNS for Router
-If you have access to the router, then change the DNS setting to point to the Pi's Private IP address in the DHCP settings.  
-Makes sure that the private IP for Pi is also reserved, and add secondary DNS (Optional) in case your PI is not accessible anymore. 
+**For Windows:**
+1. Open **Network & Internet Settings**
+2. Click **Change adapter options**
+3. Right-click your network → **Properties**
+4. Select **Internet Protocol Version 4 (TCP/IPv4)**
+5. Choose **Use the following DNS server addresses**
+6. Enter Pi's IP: `192.168.10.50`
 
-### What's next?
-After adding the deny lists, it is also important to add white lists or allow lists so that some of the important domains can be accessed and are not blocked. 
+**For macOS:**
+1. Open **System Preferences** → **Network**
+2. Select your connection → **Advanced**
+3. Go to **DNS** tab
+4. Click **+** and add Pi's IP address
 
-https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt
+**For Android:**
+1. Go to **Settings** → **Wi-Fi**
+2. Long-press your network → **Modify network**
+3. Show **Advanced options**
+4. Change **IP settings** to **Static**
+5. Set **DNS 1** to Pi's IP address
+
+**For iOS:**
+1. Go to **Settings** → **Wi-Fi**
+2. Tap **(i)** next to your network
+3. Scroll to **Configure DNS** → **Manual**
+4. Add Pi's IP address
+
+### Option 2: Configure Router (Recommended if Available)
+
+1. Log into router's web interface
+2. Find **DHCP Settings** or **LAN Settings**
+3. Set **Primary DNS** to Pi's IP address (e.g., `192.168.10.50`)
+4. Optionally set **Secondary DNS** to `8.8.8.8` (fallback)
+5. **Reserve/Static DHCP** for Pi's MAC address
+6. Save and reboot router
+
+This automatically configures all devices on your network.
+
+---
+
+## Troubleshooting
+
+### Password Not Working
+
+If you can't log in with the password set in docker-compose.yml:
+
+```bash
+# Access Pi-hole container shell
+docker exec -it pihole /bin/bash
+
+# Set new password
+pihole setpassword YourNewPassword
+
+# Exit container
+exit
+```
+
+### Port 53 Already in Use
+
+```bash
+# Check what's using port 53
+sudo ss -tulpn | grep :53
+
+# If systemd-resolved is using it
+sudo systemctl stop systemd-resolved
+sudo systemctl disable systemd-resolved
+```
+
+### Container Won't Start
+
+```bash
+# Check logs
+docker logs pihole
+
+# Restart container
+docker restart pihole
+```
+
+### DNS Not Working on Clients
+
+```bash
+# Test DNS resolution from client
+nslookup google.com 192.168.10.50
+
+# Check Pi-hole logs
+docker exec -it pihole pihole -t
+```
+
+### Web Interface Not Accessible
+
+```bash
+# Verify container is running
+docker ps
+
+# Check Pi's IP address
+ip a
+
+# Test from Pi itself
+curl http://localhost/admin
+```
+
+---
+
+## Additional Resources
+
+### Official Documentation
+- [Pi-hole Documentation](https://docs.pi-hole.net/)
+- [Docker Pi-hole GitHub](https://github.com/pi-hole/docker-pi-hole)
+
+### Blocklist Collections
+- [Firebog Blocklists](https://firebog.net/)
+- [The Block List Project](https://blocklist.site/)
+
+### Useful Commands
+
+```bash
+# Update Pi-hole
+docker pull pihole/pihole:latest
+docker compose down
+docker compose up -d
+
+# View live query log
+docker exec -it pihole pihole -t
+
+# Update gravity
+docker exec -it pihole pihole -g
+
+# Restart DNS service
+docker exec -it pihole pihole restartdns
+
+# Check Pi-hole status
+docker exec -it pihole pihole status
+```
+
+---
+
+## Summary
+
+You now have a fully functional Pi-hole DNS ad-blocker running on your Raspberry Pi via Docker! 
+
+**Key Points:**
+- Pi-hole has a static IP for reliability
+- Comprehensive blocklists are active
+- Clients are configured to use Pi-hole for DNS
+- Web interface accessible at `http://YOUR_PI_IP/admin`
+
+**Next Steps:**
+- Monitor blocked queries in the web interface
+- Fine-tune whitelists/blacklists as needed
+- Consider adding additional services (Unbound for recursive DNS)
+- Set up regular backups of Pi-hole configuration
+
+Enjoy your ad-free network! 🎉
