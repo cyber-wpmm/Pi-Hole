@@ -3,6 +3,8 @@
 **Server:** Chicken Little - Win  
 **Last Updated:** 2025-11-25
 
+![Pi DashBoard](https://github.com/cyber-wpmm/Pi-Hole/blob/main/images/Dashboard.png)
+
 ---
 
 ## Table of Contents
@@ -41,7 +43,8 @@ This guide covers the complete installation and configuration of Pi-hole on a Ra
 **Tip:** When using Raspberry Pi Imager, pre-configure Wi-Fi and credentials using **Ctrl + Shift + X** (Windows) or **Command + Shift + X** (macOS) before flashing.
 
 ---
-![[./images/OS_Customisation.png]]
+
+![Pi Imager OS Customisation](https://github.com/cyber-wpmm/Pi-Hole/blob/main/images/OS_Customisation.png)
 ## Step 1: Initial Setup and IP Configuration
 
 ### Finding Your Pi's IP Address
@@ -251,8 +254,6 @@ services:
     restart: unless-stopped
 ```
 
-**Important timezone format:** Use [tz database format](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
-
 ### Check Port Conflicts
 
 ```bash
@@ -375,7 +376,18 @@ Import via web interface: **Whitelist** → Add domains from URL
 
 ## Step 6: Configuring DNS Clients
 
-### Option 1: Configure Individual Devices (CGNAT/No Router Access)
+### Option 1: Configure Router (Recommended if Available)
+
+1. Log into router's web interface
+2. Find **DHCP Settings** or **LAN Settings**
+3. Set **Primary DNS** to Pi's IP address (e.g., `192.168.10.50`)
+4. Optionally set **Secondary DNS** to `8.8.8.8` (fallback)
+5. **Reserve/Static DHCP** for Pi's MAC address
+6. Save and reboot router
+
+This automatically configures all devices on your network.
+
+### Option 2: Configure Individual Devices (CGNAT/No Router Access)
 
 **For Linux (NetworkManager):**
 
@@ -407,30 +419,6 @@ nmcli device show wlp4s0 | grep IP4.DNS
 2. Select your connection → **Advanced**
 3. Go to **DNS** tab
 4. Click **+** and add Pi's IP address
-
-**For Android:**
-1. Go to **Settings** → **Wi-Fi**
-2. Long-press your network → **Modify network**
-3. Show **Advanced options**
-4. Change **IP settings** to **Static**
-5. Set **DNS 1** to Pi's IP address
-
-**For iOS:**
-1. Go to **Settings** → **Wi-Fi**
-2. Tap **(i)** next to your network
-3. Scroll to **Configure DNS** → **Manual**
-4. Add Pi's IP address
-
-### Option 2: Configure Router (Recommended if Available)
-
-1. Log into router's web interface
-2. Find **DHCP Settings** or **LAN Settings**
-3. Set **Primary DNS** to Pi's IP address (e.g., `192.168.10.50`)
-4. Optionally set **Secondary DNS** to `8.8.8.8` (fallback)
-5. **Reserve/Static DHCP** for Pi's MAC address
-6. Save and reboot router
-
-This automatically configures all devices on your network.
 
 ---
 
@@ -504,6 +492,8 @@ curl http://localhost/admin
 - [Docker Pi-hole GitHub](https://github.com/pi-hole/docker-pi-hole)
 
 ### Blocklist Collections
+- [Hagezi DNS Blocklists](https://github.com/hagezi/dns-blocklists)
+- [Pihole Blocklists](https://github.com/r0xd4n3t/pihole-adblock-lists)
 - [Firebog Blocklists](https://firebog.net/)
 - [The Block List Project](https://blocklist.site/)
 
@@ -532,8 +522,6 @@ docker exec -it pihole pihole status
 
 ## Summary
 
-You now have a fully functional Pi-hole DNS ad-blocker running on your Raspberry Pi via Docker! 
-
 **Key Points:**
 - Pi-hole has a static IP for reliability
 - Comprehensive blocklists are active
@@ -545,5 +533,3 @@ You now have a fully functional Pi-hole DNS ad-blocker running on your Raspberry
 - Fine-tune whitelists/blacklists as needed
 - Consider adding additional services (Unbound for recursive DNS)
 - Set up regular backups of Pi-hole configuration
-
-Enjoy your ad-free network! 🎉
