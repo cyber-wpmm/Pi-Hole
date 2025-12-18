@@ -8,6 +8,8 @@ if ! sudo docker ps | grep -q pihole; then
 fi
 
 # Define the blocklists to add
+# Feel free to remove or add URLs as needed. 
+
 BLOCKLISTS=(
   "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
   "https://adaway.org/hosts.txt"
