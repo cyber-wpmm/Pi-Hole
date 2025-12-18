@@ -1,0 +1,14 @@
+# Netplan configuration for setting a static IP address
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: no
+      addresses:
+        - 192.168.10.50/24  # Replace with your desired static IP
+      gateway4: 192.168.0.1  # Replace with your router's IP
+      nameservers:
+        addresses:
+          - 1.1.1.1  # Cloudflare DNS
+          - 8.8.8.8  # Google DNS

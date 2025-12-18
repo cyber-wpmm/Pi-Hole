@@ -1,7 +1,21 @@
 # Pi-hole Setup and Configuration Guide
 
 **Server:** Chicken Little - Win  
-**Last Updated:** 2025-11-25
+**Last Updated:** 2025-12-19
+
+---
+
+## What I Have Learned
+
+Through this project, I have gained valuable insights into:
+
+- **Networking Basics**: Understanding static IP configuration and DNS management.
+- **Docker**: Setting up and managing containers for efficient application deployment.
+- **Pi-hole**: Deploying and configuring Pi-hole as a network-wide ad blocker.
+- **Automation**: Writing scripts to simplify repetitive tasks, such as adding blocklists and managing Docker containers.
+- **Troubleshooting**: Diagnosing and resolving common issues related to DNS, Docker, and Pi-hole.
+
+This experience has enhanced my skills in system administration, scripting, and network security.
 
 ---
 
@@ -17,17 +31,31 @@
 8. [Step 6: Configuring DNS Clients](#step-6-configuring-dns-clients)
 9. [Troubleshooting](#troubleshooting)
 10. [Additional Resources](#additional-resources)
+11. [Scripts](#scripts)
 
 ---
 
 ## Overview
 
-This guide covers the complete installation and configuration of Pi-hole on a Raspberry Pi using Docker, including:
+This guide covers the complete installation and configuration of Pi-hole on a Raspberry Pi using Docker. It includes:
 - Setting up a static IP address
 - Docker and Docker Compose installation
 - Pi-hole container deployment
 - Adding comprehensive blocklists
 - Client DNS configuration
+
+---
+
+## Scripts
+
+To simplify the setup and management of Pi-hole, the following scripts are included in this repository:
+
+1. **[get-docker.sh](scripts/get-docker.sh)**: Automates the installation of Docker.
+2. **[docker-compose.yml](scripts/docker-compose.yml)**: Configuration file for deploying Pi-hole using Docker Compose.
+3. **[network-config.yaml](scripts/network-config.yaml)**: Example Netplan configuration for setting a static IP address.
+4. **[docker-bash.sh](scripts/docker-bash.sh)**: Automates the addition of blocklists in bulk using sqlite3.
+
+Refer to the sections in this guide for detailed usage instructions.
 
 ---
 
@@ -40,8 +68,10 @@ This guide covers the complete installation and configuration of Pi-hole on a Ra
 
 **Tip:** When using Raspberry Pi Imager, pre-configure Wi-Fi and credentials using **Ctrl + Shift + X** (Windows) or **Command + Shift + X** (macOS) before flashing.
 
+![OS Customisation](./images/OS_Customisation.png)
+
 ---
-![[./images/OS_Customisation.png]]
+
 ## Step 1: Initial Setup and IP Configuration
 
 ### Finding Your Pi's IP Address
@@ -52,7 +82,7 @@ This guide covers the complete installation and configuration of Pi-hole on a Ra
 - Find your Pi's IP address
 
 **Option 2 - Direct Access:**
-- Connect monitor and keyboard to Pi
+- Connect a monitor and keyboard to the Pi
 - Run the following command:
 
 ```bash
@@ -75,7 +105,7 @@ sudo apt update && sudo apt upgrade -y
 
 **SSH Terminal Fix (if needed):**
 
-If you can't use `nano` during SSH session:
+If you can't use `nano` during an SSH session:
 
 ```bash
 export TERM=xterm-256color
@@ -189,7 +219,7 @@ If you have router access, reserve the Pi's IP address in the router's DHCP sett
 
 ## Step 3: Installing Docker
 
-### Install Docker using official script
+### Install Docker using the official script
 
 ```bash
 # Download Docker installation script
@@ -363,7 +393,7 @@ docker exec -it pihole pihole -g
 
 ### Adding Whitelists
 
-Some legitimate domains may be blocked. Add this whitelist:
+Some legitimate domains may be blocked. Add the following whitelist:
 
 ```
 https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt

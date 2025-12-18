@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"      # DNS TCP
+      - "53:53/udp"      # DNS UDP
+      - "80:80/tcp"      # Web interface HTTP
+      - "443:443/tcp"    # Web interface HTTPS
+    environment:
+      TZ: 'Pacific/Auckland'  # Change to your timezone
+      FTLCONF_webserver_api_password: 'YourSecurePassword'
+      FTLCONF_dns_listeningMode: 'all'  # Required for bridge network
+    volumes:
+      - './etc-pihole:/etc/pihole'
+      - './etc-dnsmasq.d:/etc/dnsmasq.d'
+    restart: unless-stopped
